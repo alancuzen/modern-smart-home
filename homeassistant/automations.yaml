@@ -1,0 +1,209 @@
+# Repo:   homeassistant/automations.yaml
+# Deploy: /config/automations.yaml (automations from Chapters 8, 9, 10, 13, 14)
+- id: living_room_occupancy_lighting
+  alias: "Lighting: Living Room Occupancy Auto-Illuminate"
+  triggers:
+    - trigger: state
+      entity_id: binary_sensor.living_room_radar_occupancy
+      to: "on"
+  conditions:
+    - condition: numeric_state
+      entity_id: sensor.living_room_lux_meter
+      below: 45   # only when ambient light is below 45 lux
+  actions:
+    # Adaptive Lighting sets brightness and colour as the light turns on
+    - action: light.turn_on
+      target:
+        entity_id: light.living_room_overhead
+
+- id: washer_cycle_started
+  alias: "Appliance: Washing Machine Cycle Started"
+  triggers:
+    - trigger: numeric_state
+      entity_id: sensor.utility_room_washer_power_draw
+      above: 10
+      for:
+        minutes: 2
+  actions:
+    - action: input_boolean.turn_on
+      target:
+        entity_id: input_boolean.washer_active_flag
+
+- id: washer_cycle_complete
+  alias: "Appliance: Washing Machine Cycle Complete"
+  triggers:
+    - trigger: numeric_state
+      entity_id: sensor.utility_room_washer_power_draw
+      below: 2.5
+      for:
+        minutes: 3   # rides out drum pauses
+  conditions:
+    - condition: state
+      entity_id: input_boolean.washer_active_flag
+      state: "on"
+  actions:
+    - action: input_boolean.turn_off
+      target:
+        entity_id: input_boolean.washer_active_flag
+    - action: notify.all_phones
+      data:
+        title: "Laundry Notification"
+        message: "The washing machine has finished. Please unload the drum."
+        data:
+          tag: "laundry-alert"
+
+- id: driveway_person_alert
+  alias: "Security: Front Driveway Person Alert"
+  mode: queued
+  triggers:
+    - trigger: mqtt
+      topic: frigate/reviews
+  conditions:
+    - condition: template
+      value_template: >-
+        {% set a = trigger.payload_json['after'] %}
+        {{ trigger.payload_json['type'] == 'new'
+           and a['camera'] == 'front_driveway'
+           and 'person' in a['data']['objects']
+           and 'driveway_parking' in a['data']['zones'] }}
+    - condition: time
+      after: "22:00:00"
+      before: "06:00:00"
+  actions:
+    - action: notify.all_phones
+      data:
+        title: "Security Alert: Driveway"
+        message: "A person was detected in the driveway zone."
+        data:
+          image: >-
+            /api/frigate/notifications/{{
+            trigger.payload_json['after']['data']['detections'][0]
+            }}/thumbnail.jpg
+          tag: "{{ trigger.payload_json['after']['id'] }}"
+          group: "security-alerts"
+          url: "/ground-floor-panel/main"
+          clickAction: "/ground-floor-panel/main"
+
+- id: heating_zone_targets
+  alias: "Heating: Apply Zone Schedules and Window Detection"
+  mode: queued
+  triggers:
+    - trigger: state
+      entity_id:
+        - schedule.heating_downstairs
+        - schedule.heating_upstairs
+        - input_number.heating_comfort_temp
+        - input_number.heating_eco_temp
+        - input_number.heating_frost_temp
+    - trigger: state
+      entity_id:
+        - binary_sensor.living_room_window_contact
+        - binary_sensor.landing_window_contact
+      to: "on"
+      for:
+        minutes: 2   # ignore a door or window opened only briefly
+    - trigger: state
+      entity_id:
+        - binary_sensor.living_room_window_contact
+        - binary_sensor.landing_window_contact
+      to: "off"
+    - trigger: homeassistant
+      event: start
+  actions:
+    - repeat:
+        for_each:
+          - climate: climate.heating_zone_controller_downstairs
+            schedule: schedule.heating_downstairs
+            window: binary_sensor.living_room_window_contact
+          - climate: climate.heating_zone_controller_upstairs
+            schedule: schedule.heating_upstairs
+            window: binary_sensor.landing_window_contact
+        sequence:
+          - action: climate.set_temperature
+            target:
+              entity_id: "{{ repeat.item.climate }}"
+            data:
+              temperature: >-
+                {% if is_state(repeat.item.window, 'on') %}
+                  {{ states('input_number.heating_frost_temp') | float(7) }}
+                {% elif is_state(repeat.item.schedule, 'on') %}
+                  {{ states('input_number.heating_comfort_temp') | float(20) }}
+                {% else %}
+                  {{ states('input_number.heating_eco_temp') | float(16) }}
+                {% endif %}
+
+- id: heating_sensor_lost
+  alias: "Heating: Zone Sensor Offline"
+  triggers:
+    - trigger: state
+      entity_id:
+        - sensor.kitchen_environmental_node_temperature
+        - sensor.landing_environmental_node_temperature
+      to: "unavailable"
+      for:
+        minutes: 10
+  actions:
+    - action: notify.all_phones
+      data:
+        title: "Heating: zone sensor offline"
+        message: >-
+          {{ trigger.to_state.name }} has been unavailable for 10 minutes.
+          Its zone valve stays closed until the sensor reports again.
+
+- id: hallway_panel_wake
+  alias: "Panel: Wake Hallway Display on Motion"
+  triggers:
+    - trigger: state
+      entity_id: binary_sensor.hallway_pir_occupancy
+      to: "on"
+  actions:
+    # Fully Kiosk exposes the screen as a switch and its brightness as a
+    # separate number entity (0-255)
+    - action: switch.turn_on
+      target:
+        entity_id: switch.hallway_wall_panel_screen
+    - action: number.set_value
+      target:
+        entity_id: number.hallway_wall_panel_screen_brightness
+      data:
+        value: 200
+
+- id: alertmanager_remediation
+  alias: "System: Remediate Frigate Container Down"
+  mode: single
+  triggers:
+    - trigger: webhook
+      webhook_id: alertmanager_event
+      allowed_methods:
+        - POST
+      local_only: true
+  conditions:
+    - condition: template
+      value_template: >-
+        {{ trigger.json.status == 'firing'
+           and trigger.json.commonLabels.alertname == 'ContainerDown'
+           and trigger.json.commonLabels.name == 'frigate' }}
+    # Cooldown: at most one automatic restart every 30 minutes
+    - condition: template
+      value_template: >-
+        {{ this.attributes.last_triggered is none
+           or (now() - this.attributes.last_triggered).total_seconds()
+              > 1800 }}
+  actions:
+    - action: system_log.write
+      data:
+        level: warning
+        message: >-
+          Automated remediation: {{ trigger.json.commonAnnotations.summary }}
+    - action: notify.all_phones
+      data:
+        title: "Alertmanager remediation"
+        message: >-
+          {{ trigger.json.commonAnnotations.summary }} - restarting Frigate.
+    - action: shell_command.restart_frigate_stack
+    - delay:
+        minutes: 2
+    - action: notify.all_phones
+      data:
+        title: "Remediation completed"
+        message: "Frigate restart issued. Check Grafana to confirm recovery."

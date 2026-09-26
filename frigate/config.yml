@@ -1,0 +1,156 @@
+# Repo:   frigate/config.yml
+# Deploy: /opt/frigate/config/config.yml on the Docker VM (Chapter 9)
+# Targets Frigate 0.17.x. {FRIGATE_*} values come from frigate.env.
+
+mqtt:
+  enabled: true
+  host: 10.0.20.15
+  port: 8883
+  user: frigate
+  password: "{FRIGATE_MQTT_PASSWORD}"
+  tls_ca_certs: /config/certs/ca.crt
+
+detectors:
+  onnx:
+    type: onnx
+
+model:
+  model_type: yolo-generic
+  width: 320
+  height: 320
+  input_tensor: nchw
+  input_dtype: float
+  path: /config/model_cache/yolov9-t-320.onnx
+  labelmap_path: /labelmap/coco-80.txt
+
+# go2rtc holds the only connection to each camera (credentials live
+# here, once); Frigate and viewers read the local restream.
+go2rtc:
+  streams:
+    front_driveway:
+      - rtsp://{FRIGATE_CAM_USER}:{FRIGATE_CAM_PASS}@10.0.30.201:554/stream1
+    front_driveway_sub:
+      - rtsp://{FRIGATE_CAM_USER}:{FRIGATE_CAM_PASS}@10.0.30.201:554/stream2
+    front_door:
+      - rtsp://{FRIGATE_CAM_USER}:{FRIGATE_CAM_PASS}@10.0.30.202:554/stream1
+    front_door_sub:
+      - rtsp://{FRIGATE_CAM_USER}:{FRIGATE_CAM_PASS}@10.0.30.202:554/stream2
+    garden_door:
+      - rtsp://{FRIGATE_CAM_USER}:{FRIGATE_CAM_PASS}@10.0.30.203:554/stream1
+    garden_door_sub:
+      - rtsp://{FRIGATE_CAM_USER}:{FRIGATE_CAM_PASS}@10.0.30.203:554/stream2
+    side_alley:
+      - rtsp://{FRIGATE_CAM_USER}:{FRIGATE_CAM_PASS}@10.0.30.204:554/stream1
+    side_alley_sub:
+      - rtsp://{FRIGATE_CAM_USER}:{FRIGATE_CAM_PASS}@10.0.30.204:554/stream2
+
+ffmpeg:
+  hwaccel_args: preset-nvidia
+  output_args:
+    record: preset-record-generic   # video only - audio is not recorded
+
+detect:
+  enabled: true
+  width: 640     # Tapo C310 stream2 resolution
+  height: 360
+  fps: 5
+
+objects:
+  track:
+    - person
+    - car
+    - dog
+    - cat
+  filters:
+    person:
+      min_area: 1500
+      max_area: 100000
+      threshold: 0.70   # minimum confidence score
+
+snapshots:
+  enabled: true
+  retain:
+    default: 14
+
+record:
+  enabled: true
+  continuous:
+    days: 3      # all footage
+  motion:
+    days: 7      # footage containing motion
+  alerts:
+    retain:
+      days: 30
+      mode: motion
+  detections:
+    retain:
+      days: 14
+      mode: motion
+
+cameras:
+  front_driveway:
+    ffmpeg:
+      inputs:
+        - path: rtsp://127.0.0.1:8554/front_driveway
+          input_args: preset-rtsp-restream
+          roles:
+            - record
+        - path: rtsp://127.0.0.1:8554/front_driveway_sub
+          input_args: preset-rtsp-restream
+          roles:
+            - detect
+    motion:
+      mask:
+        - 0,0,0,0.167,0.313,0.167,0.313,0     # timestamp overlay
+        - 0.703,0,1,0,1,0.333,0.703,0.333     # tree canopy, top right
+    zones:
+      driveway_parking:
+        coordinates: 0,1,0.344,0.5,0.75,0.5,1,1
+        objects:
+          - car
+          - person
+      front_porch_step:
+        coordinates: 0.313,0.5,0.547,0.333,0.703,0.333,0.594,0.5
+        objects:
+          - person
+  front_door:
+    ffmpeg:
+      inputs:
+        - path: rtsp://127.0.0.1:8554/front_door
+          input_args: preset-rtsp-restream
+          roles:
+            - record
+        - path: rtsp://127.0.0.1:8554/front_door_sub
+          input_args: preset-rtsp-restream
+          roles:
+            - detect
+  garden_door:
+    ffmpeg:
+      inputs:
+        - path: rtsp://127.0.0.1:8554/garden_door
+          input_args: preset-rtsp-restream
+          roles:
+            - record
+        - path: rtsp://127.0.0.1:8554/garden_door_sub
+          input_args: preset-rtsp-restream
+          roles:
+            - detect
+    motion:
+      mask:
+        - 0.6,0,1,0,1,0.45,0.6,0.45           # road-facing hedge
+    zones:
+      garden_gate:
+        coordinates: 0.2,0.55,0.45,0.5,0.45,0.95,0.2,1
+        objects:
+          - person
+  side_alley:
+    ffmpeg:
+      inputs:
+        - path: rtsp://127.0.0.1:8554/side_alley
+          input_args: preset-rtsp-restream
+          roles:
+            - record
+        - path: rtsp://127.0.0.1:8554/side_alley_sub
+          input_args: preset-rtsp-restream
+          roles:
+            - detect

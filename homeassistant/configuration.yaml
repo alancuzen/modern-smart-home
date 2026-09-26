@@ -1,0 +1,172 @@
+# Repo:   homeassistant/configuration.yaml
+# Deploy: /config/configuration.yaml (Appendix C)
+# MQTT (broker 10.0.20.15, port 8883, CA certificate), Wyoming
+# (10.0.10.55 ports 10300 and 10200), Ollama, Frigate and Fully Kiosk
+# are set up in Settings > Devices & services - they have no YAML.
+default_config:
+
+homeassistant:
+  name: "Foxglove Lane"
+  latitude: !secret home_latitude
+  longitude: !secret home_longitude
+  elevation: !secret home_elevation
+  unit_system: metric
+  time_zone: "Europe/London"
+  country: GB
+  currency: GBP
+  external_url: "https://home.example.net"
+  internal_url: "http://10.0.10.50:8123"
+  allowlist_external_dirs:
+    - "/config/www"
+    - "/media"
+
+http:
+  use_x_forwarded_for: true
+  trusted_proxies:
+    - 10.0.10.60   # Caddy reverse proxy (Chapter 3)
+  ip_ban_enabled: true
+  login_attempts_threshold: 5
+
+recorder:
+  db_url: !secret postgres_db_url   # delete this line to stay on SQLite
+  purge_keep_days: 14
+  auto_purge: true
+  auto_repack: true
+  commit_interval: 15
+  # Exclude-only on purpose: an include: list silently drops every
+  # domain it doesn't name - including the Energy dashboard's sensors.
+  exclude:
+    entity_globs:
+      - sensor.*_signal_strength
+      - sensor.*_uptime
+      - sensor.processor_use*
+      - sensor.memory_use*
+      - sensor.kitchen_environmental_node_tvoc
+      - sensor.kitchen_environmental_node_pm*
+      - sensor.living_room_radar_*_distance
+    entities:
+      - sensor.time
+      - sensor.date
+
+prometheus:
+  filter:
+    include_domains:
+      - binary_sensor
+      - climate
+      - light
+      - lock
+      - sensor
+      - switch
+
+adaptive_lighting:
+  - name: "Main Living Areas"
+    lights:
+      - light.living_room_overhead
+      - light.kitchen_recessed_array
+      - light.hallway_downlights
+    prefer_rgb_color: false
+    transition: 45          # seconds per adaptation step
+    initial_transition: 1
+    interval: 90            # re-evaluate every 90 seconds
+    min_color_temp: 2000    # warm amber at night
+    max_color_temp: 5500    # cool daylight at solar noon
+    min_brightness: 1
+    max_brightness: 100
+    sleep_color_temp: 2000
+    sleep_brightness: 1
+    sunrise_offset: -1800   # start warming up 30 min before sunrise
+    sunset_offset: 1800     # extend the warm transition 30 min after sunset
+
+notify:
+  - platform: group
+    name: all_phones
+    services:
+      - action: mobile_app_alans_phone
+      - action: mobile_app_partners_phone
+
+input_number:
+  heating_comfort_temp:
+    name: "Heating comfort temperature"
+    min: 16
+    max: 23
+    step: 0.5
+    unit_of_measurement: "°C"
+    mode: box
+  heating_eco_temp:
+    name: "Heating eco temperature"
+    min: 12
+    max: 19
+    step: 0.5
+    unit_of_measurement: "°C"
+    mode: box
+  heating_frost_temp:
+    name: "Heating frost temperature"
+    min: 5
+    max: 10
+    step: 0.5
+    unit_of_measurement: "°C"
+    mode: box
+
+input_boolean:
+  washer_active_flag:
+    name: "Washer running"
+    icon: mdi:washing-machine
+  bin_collection_day:
+    name: "Bin collection day"
+    icon: mdi:trash-can
+
+schedule:
+  heating_downstairs:
+    name: "Heating downstairs"
+    icon: mdi:radiator
+    monday: &weekday_downstairs
+      - from: "06:30:00"
+        to: "08:30:00"
+      - from: "16:30:00"
+        to: "22:00:00"
+    tuesday: *weekday_downstairs
+    wednesday: *weekday_downstairs
+    thursday: *weekday_downstairs
+    friday: *weekday_downstairs
+    saturday: &weekend_downstairs
+      - from: "07:30:00"
+        to: "22:30:00"
+    sunday: *weekend_downstairs
+  heating_upstairs:
+    name: "Heating upstairs"
+    icon: mdi:radiator
+    monday: &weekday_upstairs
+      - from: "06:00:00"
+        to: "07:30:00"
+      - from: "20:30:00"
+        to: "22:30:00"
+    tuesday: *weekday_upstairs
+    wednesday: *weekday_upstairs
+    thursday: *weekday_upstairs
+    friday: *weekday_upstairs
+    saturday: &weekend_upstairs
+      - from: "07:00:00"
+        to: "09:00:00"
+      - from: "20:30:00"
+        to: "23:00:00"
+    sunday: *weekend_upstairs
+
+shell_command:
+  restart_frigate_stack: >-
+    ssh -i /config/.ssh/remediation_ed25519
+    -o UserKnownHostsFile=/config/.ssh/known_hosts
+    -o StrictHostKeyChecking=yes
+    remediation@10.0.10.55
+
+lovelace:
+  dashboards:
+    ground-floor-panel:
+      mode: yaml
+      filename: dashboards/ground_floor_panel.yaml
+      title: "Ground Floor Panel"
+      icon: mdi:tablet-dashboard
+      show_in_sidebar: true
+
+automation: !include automations.yaml
+script: !include scripts.yaml
+scene: !include scenes.yaml

@@ -1,0 +1,86 @@
+# Repo:   esphome/environmental_node.yaml
+# Deploy: /config/esphome/environmental_node.yaml (Chapter 7)
+esphome:
+  name: kitchen-environmental-node
+  friendly_name: "Kitchen Environmental Node"
+
+esp32:
+  board: esp32dev
+  framework:
+    type: esp-idf
+
+api:
+  encryption:
+    key: !secret api_key_environmental
+
+ota:
+  - platform: esphome
+    encryption:   # ESPHome 2026.9+: OTA encrypted with the api: key
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  manual_ip:
+    static_ip: 10.0.20.110
+    gateway: 10.0.20.1
+    subnet: 255.255.255.0
+    dns1: 10.0.20.1
+
+logger:
+
+i2c:
+  id: bus_a
+  sda: GPIO21
+  scl: GPIO22
+  scan: true
+
+uart:
+  - id: uart_pms
+    rx_pin: GPIO16   # PMS5003 TX -> ESP32 RX
+    tx_pin: GPIO17
+    baud_rate: 9600
+
+sensor:
+  # BME280 climate sensor (I2C address 0x76)
+  - platform: bme280_i2c
+    i2c_id: bus_a
+    address: 0x76
+    update_interval: 15s
+    temperature:
+      id: kitchen_temperature
+      name: "Temperature"
+      oversampling: 16x
+      force_update: true   # re-send unchanged values: heating fail-safe (Ch. 10)
+      filters:
+        - offset: -0.5   # calibrate against a reference thermometer
+    humidity:
+      id: kitchen_humidity
+      name: "Humidity"
+    pressure:
+      name: "Pressure"
+
+  # SGP30 air-quality sensor (I2C address 0x58). No hard-coded
+  # baseline: let this sensor learn its own over the first 12 hours.
+  - platform: sgp30
+    i2c_id: bus_a
+    address: 0x58
+    update_interval: 10s
+    store_baseline: true
+    compensation:
+      temperature_source: kitchen_temperature
+      humidity_source: kitchen_humidity
+    eco2:
+      name: "eCO2"
+    tvoc:
+      name: "TVOC"
+
+  # PMS5003 particulate sensor (UART)
+  - platform: pmsx003
+    type: PMSX003
+    uart_id: uart_pms
+    pm_1_0:
+      name: "PM1.0"
+    pm_2_5:
+      name: "PM2.5"
+    pm_10_0:
+      name: "PM10"

@@ -1,0 +1,69 @@
+# Repo:   homeassistant/scripts.yaml
+# Deploy: /config/scripts.yaml (Chapter 15). Expose both scripts to Assist.
+llm_set_light_state:
+  alias: "LLM: Set light state"
+  description: >-
+    Turn a light on or off. Only the living room, kitchen and hallway
+    lights may be controlled.
+  mode: parallel
+  max: 10
+  fields:
+    light_entity:
+      description: "Light entity, e.g. light.living_room_overhead"
+      required: true
+      selector:
+        entity:
+          domain: light
+    power:
+      description: "on or off"
+      required: true
+      selector:
+        select:
+          options: ["on", "off"]
+    brightness_pct:
+      description: "Brightness 1-100, used only when power is on"
+      selector:
+        number:
+          min: 1
+          max: 100
+  sequence:
+    # Reject anything outside the allow-list before acting
+    - condition: template
+      value_template: >-
+        {{ light_entity in ['light.living_room_overhead',
+                         'light.kitchen_recessed_array',
+                         'light.hallway_downlights'] }}
+    - if:
+        - condition: template
+          value_template: "{{ power == 'off' }}"
+      then:
+        - action: light.turn_off
+          target:
+            entity_id: "{{ light_entity }}"
+      else:
+        - action: light.turn_on
+          target:
+            entity_id: "{{ light_entity }}"
+          data:
+            brightness_pct: "{{ brightness_pct | default(100) | int }}"
+
+llm_set_climate_temperature:
+  alias: "LLM: Set heating target"
+  description: "Set the downstairs heating target, 7-24 degrees Celsius."
+  mode: queued
+  fields:
+    temperature:
+      description: "Target temperature in degrees Celsius"
+      required: true
+      selector:
+        number:
+          min: 7
+          max: 24
+          step: 0.5
+  sequence:
+    - action: climate.set_temperature
+      target:
+        entity_id: climate.heating_zone_controller_downstairs
+      data:
+        # Clamp to 7-24 even if the model sends something else
+        temperature: "{{ [[temperature | float(20), 7] | max, 24] | min }}"

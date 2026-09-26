@@ -1,0 +1,13 @@
+# Repo:   docker-compose/monitoring/alertmanager/alertmanager.yml
+route:
+  group_by: ["alertname", "name"]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  receiver: home_assistant_webhook
+
+receivers:
+  - name: home_assistant_webhook
+    webhook_configs:
+      - url: "http://10.0.10.50:8123/api/webhook/alertmanager_event"
+        send_resolved: true

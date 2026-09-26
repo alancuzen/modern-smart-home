@@ -1,0 +1,82 @@
+# Repo:   docker-compose/monitoring/docker-compose.yml
+# Run:    cd /opt/modern-smart-home/docker-compose/monitoring
+#         docker compose --env-file ../.env up -d
+services:
+  prometheus:
+    container_name: prometheus
+    image: prom/prometheus:v3.11.2
+    restart: unless-stopped
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=30d"
+      - "--web.enable-lifecycle"
+    ports:
+      - "${HOST_IP:-127.0.0.1}:9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - ./secrets/ha_token:/etc/prometheus/ha_token:ro
+      - prometheus_data:/prometheus
+
+  node_exporter:
+    container_name: node_exporter
+    image: prom/node-exporter:v1.12.1
+    restart: unless-stopped
+    network_mode: host   # must see the VM's real network namespace
+    pid: host
+    command:
+      - "--path.rootfs=/host"
+      - "--web.listen-address=${HOST_IP:-127.0.0.1}:9100"
+    volumes:
+      - "/:/host:ro,rslave"
+
+  cadvisor:
+    container_name: cadvisor
+    image: ghcr.io/google/cadvisor:0.56.2
+    restart: unless-stopped
+    privileged: true
+    devices:
+      - /dev/kmsg:/dev/kmsg
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    # privileged: needed to read cgroup and device stats for every container.
+    # No published port: Prometheus scrapes cadvisor:8080 internally.
+
+  alertmanager:
+    container_name: alertmanager
+    image: prom/alertmanager:v0.34.1
+    restart: unless-stopped
+    ports:
+      - "${HOST_IP:-127.0.0.1}:9093:9093"
+    volumes:
+      - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_data:/alertmanager
+
+  grafana:
+    container_name: grafana
+    image: grafana/grafana:13.2.2
+    restart: unless-stopped
+    ports:
+      - "${HOST_IP:-127.0.0.1}:3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD__FILE=/run/secrets/grafana_pass
+      - GF_USERS_ALLOW_SIGN_UP=false
+    secrets:
+      - grafana_pass
+    volumes:
+      - grafana_data:/var/lib/grafana
+
+volumes:
+  prometheus_data:
+  alertmanager_data:
+  grafana_data:
+
+secrets:
+  grafana_pass:
+    file: ./secrets/grafana_pass.txt

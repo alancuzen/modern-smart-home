@@ -1,0 +1,66 @@
+# Repo:   docker-compose/monitoring/prometheus/alerts.yml
+groups:
+  - name: InfrastructureHealthAlerts
+    rules:
+      - alert: HighCpuUtilization
+        expr: >-
+          100 - (avg by (instance)
+          (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU on {{ $labels.instance }}"
+          description: "CPU above 85% for 5 minutes ({{ $value | printf \"%.1f\" }}%)."
+
+      - alert: LowMemoryAvailability
+        expr: >-
+          node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes
+          * 100 < 10
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Low memory on {{ $labels.instance }}"
+          description: "Available memory below 10% ({{ $value | printf \"%.1f\" }}%)."
+
+      - alert: DiskSpaceRunningLow
+        expr: >-
+          (1 - node_filesystem_avail_bytes{mountpoint="/",fstype!~"tmpfs|overlay"}
+          / node_filesystem_size_bytes{mountpoint="/",fstype!~"tmpfs|overlay"})
+          * 100 > 90
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Root filesystem above 90% on {{ $labels.instance }}"
+          description: "Free space on / before services start failing."
+
+      - alert: ContainerDown
+        expr: >-
+          (time() - container_last_seen{name=~"frigate|ollama|whisper|piper|postgres"}
+          > 60) or absent(container_last_seen{name="frigate"})
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Container {{ $labels.name }} is not running"
+          description: "cAdvisor has not seen {{ $labels.name }} for over a minute."
+
+      - alert: ZfsPoolUnhealthy
+        expr: zfs_pool_healthy == 0 or zfs_pool_data_errors > 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "ZFS pool {{ $labels.pool }} needs attention"
+          description: "Run zpool status -v {{ $labels.pool }} on the host."
+
+      - alert: NvmeWearHigh
+        expr: nvme_percentage_used > 80
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "NVMe {{ $labels.device }} at {{ $value }}% of rated endurance"
+          description: "Plan a replacement before the drive reaches 100%."

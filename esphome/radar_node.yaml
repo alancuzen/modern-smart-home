@@ -1,0 +1,63 @@
+# Repo:   esphome/radar_node.yaml
+# Deploy: /config/esphome/radar_node.yaml (Chapter 8)
+# For a second room, copy the file and change name, friendly_name,
+# the API key name and static_ip.
+esphome:
+  name: living-room-radar
+  friendly_name: "Living Room Radar"
+
+esp32:
+  board: esp32dev
+  framework:
+    type: esp-idf
+
+api:
+  encryption:
+    key: !secret api_key_radar
+
+ota:
+  - platform: esphome
+    encryption:   # ESPHome 2026.9+: OTA encrypted with the api: key
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  manual_ip:
+    static_ip: 10.0.20.125
+    gateway: 10.0.20.1
+    subnet: 255.255.255.0
+    dns1: 10.0.20.1
+
+logger:
+
+uart:
+  id: uart_radar
+  tx_pin: GPIO17
+  rx_pin: GPIO16
+  baud_rate: 256000
+  parity: NONE
+  stop_bits: 1
+
+ld2410:
+  id: ld2410_radar
+  uart_id: uart_radar
+
+binary_sensor:
+  - platform: ld2410
+    ld2410_id: ld2410_radar
+    has_target:
+      name: "Occupancy"
+    has_moving_target:
+      name: "Moving Target"
+    has_still_target:
+      name: "Still Target"
+
+sensor:
+  - platform: ld2410
+    ld2410_id: ld2410_radar
+    moving_distance:
+      name: "Moving Distance"
+    still_distance:
+      name: "Still Distance"
+    detection_distance:
+      name: "Detection Distance"

@@ -1,0 +1,4 @@
+# Repo:   runbooks/remediation-authorized_keys.example
+# Deploy: /home/remediation/.ssh/authorized_keys on the Docker VM (Ch. 14)
+# The forced command means this key can do exactly one thing.
+command="cd /opt/modern-smart-home/docker-compose/frigate && docker compose --env-file ../.env restart frigate",no-port-forwarding,no-X11-forwarding,no-agent-forwarding,no-pty ssh-ed25519 AAAA_REPLACE_WITH_PUBLIC_KEY homeassistant-remediation

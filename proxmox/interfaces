@@ -1,0 +1,32 @@
+# Repo:   proxmox/interfaces
+# Deploy: /etc/network/interfaces on the Proxmox VE host (Appendix B)
+# The switch ports must be configured as an 802.3ad (LACP) LAG too.
+# With a single NIC, delete bond0 and set bridge-ports to that NIC.
+auto lo
+iface lo inet loopback
+
+iface enp3s0f0 inet manual
+iface enp3s0f1 inet manual
+
+auto bond0
+iface bond0 inet manual
+    bond-slaves enp3s0f0 enp3s0f1
+    bond-miimon 100
+    bond-mode 802.3ad
+    bond-xmit-hash-policy layer2+3
+
+# VLAN-aware bridge carrying VLANs 10-40 to the guests
+auto vmbr0
+iface vmbr0 inet manual
+    bridge-ports bond0
+    bridge-stp off
+    bridge-fd 0
+    bridge-vlan-aware yes
+    bridge-vids 10 20 30 40
+
+# Management address - the host's ONLY IP (VLAN 10). The host has no
+# address on VLAN 20: guests there are bridged, the hypervisor is not.
+auto vmbr0.10
+iface vmbr0.10 inet static
+    address 10.0.10.2/24
+    gateway 10.0.10.1

@@ -1,0 +1,24 @@
+# Repo:   mosquitto/aclfile
+# Deploy: /etc/mosquitto/aclfile on the Mosquitto LXC (Chapter 5)
+
+# Home Assistant - full access plus read-only $SYS statistics
+user homeassistant
+topic readwrite #
+topic read $SYS/#
+
+# Zigbee2MQTT - its own tree plus Home Assistant discovery
+user zigbee2mqtt
+topic readwrite zigbee2mqtt/#
+topic readwrite homeassistant/#
+
+# Frigate - publishes events and receives commands on its own tree
+user frigate
+topic readwrite frigate/#
+topic read homeassistant/status
+
+# Example MQTT-based ESP32 node (connects over TLS on 8883) - own tree
+# plus its own discovery topics
+user esp32_living_room
+topic readwrite esp32-living-room/#
+topic write homeassistant/+/esp32-living-room/#
+topic read homeassistant/status
