@@ -1,0 +1,70 @@
+# Repo:   esphome/smart_plug_01.yaml
+# Deploy: /config/esphome/smart_plug_01.yaml (Chapter 8)
+esphome:
+  name: smart-plug-01
+  friendly_name: "Kitchen Coffee Maker Plug"
+
+esp8266:
+  board: esp01_1m
+
+api:
+  encryption:
+    key: !secret api_key_smart_plug
+
+ota:
+  - platform: esphome
+    encryption:   # ESPHome 2026.9+: OTA encrypted with the api: key
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  manual_ip:
+    static_ip: 10.0.20.105
+    gateway: 10.0.20.1
+    subnet: 255.255.255.0
+    dns1: 10.0.20.1
+  # Fallback access point if the IoT Wi-Fi is unreachable
+  ap:
+    ssid: "Smart-Plug-01-Fallback"
+    password: !secret fallback_ap_password
+
+captive_portal:
+
+logger:
+
+binary_sensor:
+  - platform: gpio
+    pin:
+      number: GPIO13
+      mode: INPUT_PULLUP
+      inverted: true
+    name: "Button"
+    on_press:
+      - switch.toggle: relay_output
+
+switch:
+  - platform: gpio
+    name: "Relay"
+    pin: GPIO15
+    id: relay_output
+    icon: "mdi:power-socket-uk"
+    restore_mode: RESTORE_DEFAULT_OFF
+
+sensor:
+  # Pins and calibration vary by plug model - check your plug's pinout
+  # before flashing, and add model: BL0937 if it uses that chip.
+  - platform: hlw8012
+    sel_pin: GPIO5
+    cf_pin: GPIO4
+    cf1_pin: GPIO12
+    voltage_divider: 780
+    current_resistor: 0.001
+    change_mode_every: 8
+    update_interval: 5s
+    voltage:
+      name: "Voltage"
+    current:
+      name: "Current"
+    power:
+      name: "Power"
+      id: plug_power

@@ -1,0 +1,19 @@
+# Repo:   docker-compose/postgres/docker-compose.yml
+# Run:    cd /opt/modern-smart-home/docker-compose/postgres
+#         docker compose --env-file ../.env up -d
+services:
+  postgres:
+    container_name: postgres
+    image: postgres:18
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: homeassistant
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: homeassistant
+      TZ: ${TZ}
+    volumes:
+      # PostgreSQL 18+ keeps its data in /var/lib/postgresql/18/docker:
+      # mount the parent directory, not the old .../data path
+      - /opt/postgres:/var/lib/postgresql
+    ports:
+      - "${HOST_IP:-127.0.0.1}:5432:5432"

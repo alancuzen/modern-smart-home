@@ -1,0 +1,36 @@
+# Repo:   network/Caddyfile
+# Deploy: /etc/caddy/Caddyfile on the Caddy LXC, 10.0.10.60 (Chapter 3)
+
+home.example.net {
+    tls admin@example.net {
+        protocols tls1.3
+    }
+
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "SAMEORIGIN"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        -Server
+    }
+
+    # Caddy sets X-Forwarded-For/-Proto, passes the Host header and
+    # proxies WebSockets without any extra directives.
+    reverse_proxy 10.0.10.50:8123
+}
+
+# Optional mutual TLS. Replace the site block above with this one to
+# require a client certificate signed by your own CA. Every client,
+# including the HA companion app, must then present one - so do not
+# enable it on an endpoint that receives third-party webhooks.
+#
+# home.example.net {
+#     tls admin@example.net {
+#         protocols tls1.3
+#         client_auth {
+#             mode require_and_verify
+#             trust_pool file /etc/caddy/client-ca.crt
+#         }
+#     }
+#     reverse_proxy 10.0.10.50:8123
+# }

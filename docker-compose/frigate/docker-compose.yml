@@ -1,0 +1,33 @@
+# Repo:   docker-compose/frigate/docker-compose.yml
+# Run:    cd /opt/modern-smart-home/docker-compose/frigate
+#         docker compose --env-file ../.env up -d
+services:
+  frigate:
+    container_name: frigate
+    image: ghcr.io/blakeblackshear/frigate:${FRIGATE_TAG}
+    restart: unless-stopped
+    stop_grace_period: 30s
+    shm_size: "1024m"   # size for your camera count (see Frigate docs)
+    env_file:
+      - ./frigate.env   # FRIGATE_MQTT_PASSWORD, FRIGATE_CAM_USER/PASS
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /opt/frigate/config:/config
+      - /opt/frigate/storage:/media/frigate
+      - type: tmpfs     # 2 GB RAM disk for recording segments
+        target: /tmp/cache
+        tmpfs:
+          size: 2000000000
+    ports:
+      - "${HOST_IP:-127.0.0.1}:8971:8971"       # UI + API, authenticated
+      - "127.0.0.1:5000:5000"                   # unauthenticated, local only
+      - "${HOST_IP:-127.0.0.1}:8554:8554"       # RTSP restream
+      - "${HOST_IP:-127.0.0.1}:8555:8555/tcp"   # WebRTC
+      - "${HOST_IP:-127.0.0.1}:8555:8555/udp"   # WebRTC

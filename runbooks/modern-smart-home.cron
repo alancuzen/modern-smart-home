@@ -1,0 +1,8 @@
+# Repo:   runbooks/modern-smart-home.cron
+# Deploy: /etc/cron.d/modern-smart-home on the Proxmox VE host
+# (Chapters 11 and 14). The vzdump job runs at 01:00 (Datacenter > Backup).
+SHELL=/bin/bash
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+*/5 * * * * root /opt/modern-smart-home/runbooks/zfs-health-textfile.sh
+0 * * * *   root /opt/modern-smart-home/runbooks/nvme-wear-textfile.sh
+30 3 * * *  root /opt/modern-smart-home/runbooks/backup_sync.sh >> /var/log/restic-offsite.log 2>&1

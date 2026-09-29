@@ -1,0 +1,4 @@
+# Repo:   homeassistant/scenes.yaml
+# Deploy: /config/scenes.yaml (Appendix C). configuration.yaml includes
+# this file; it starts empty and the scene editor in the UI fills it.
+[]

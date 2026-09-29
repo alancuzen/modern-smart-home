@@ -1,0 +1,61 @@
+# Repo:   esphome/intercom_latch.yaml
+# Deploy: /config/esphome/intercom_latch.yaml (Chapter 8)
+esphome:
+  name: door-intercom-latch
+  friendly_name: "Door Intercom Latch"
+
+esp32:
+  board: esp32dev
+  framework:
+    type: esp-idf
+
+api:
+  encryption:
+    key: !secret api_key_intercom
+
+ota:
+  - platform: esphome
+    encryption:   # ESPHome 2026.9+: OTA encrypted with the api: key
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  manual_ip:
+    static_ip: 10.0.20.120
+    gateway: 10.0.20.1
+    subnet: 255.255.255.0
+    dns1: 10.0.20.1
+
+logger:
+
+switch:
+  # Relay driver: internal (not exposed), always OFF after boot, and it
+  # switches itself off 1.5 s after ANY turn-on, however it was caused.
+  - platform: gpio
+    pin: GPIO23
+    id: intercom_relay
+    internal: true
+    restore_mode: ALWAYS_OFF
+    on_turn_on:
+      - delay: 1500ms
+      - switch.turn_off: intercom_relay
+
+button:
+  # Momentary release exposed to Home Assistant
+  - platform: template
+    name: "Front Door Release"
+    icon: "mdi:door-open"
+    on_press:
+      - switch.turn_on: intercom_relay
+
+binary_sensor:
+  # Chime detect through a PC817 optocoupler with an external 10 kOhm
+  # pull-up (GPIO34 is input-only and has no internal pull resistors).
+  - platform: gpio
+    pin:
+      number: GPIO34
+      mode: INPUT
+      inverted: true
+    name: "Intercom Chime"
+    filters:
+      - delayed_on: 50ms

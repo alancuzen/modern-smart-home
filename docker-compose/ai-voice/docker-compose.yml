@@ -1,0 +1,56 @@
+# Repo:   docker-compose/ai-voice/docker-compose.yml
+# Run:    cd /opt/modern-smart-home/docker-compose/ai-voice
+#         docker compose --env-file ../.env up -d
+services:
+  ollama:
+    container_name: ollama
+    image: ollama/ollama:${OLLAMA_TAG}
+    restart: unless-stopped
+    environment:
+      - OLLAMA_KEEP_ALIVE=24h
+      - OLLAMA_NUM_PARALLEL=2
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    volumes:
+      - /opt/ollama:/root/.ollama
+    ports:
+      - "${HOST_IP:-127.0.0.1}:11434:11434"   # no auth: keep on VLAN 10
+
+  whisper:
+    container_name: whisper
+    image: lscr.io/linuxserver/faster-whisper:${WHISPER_TAG}
+    restart: unless-stopped
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+      - WHISPER_MODEL=small.en
+      - WHISPER_LANG=en
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    volumes:
+      - /opt/whisper:/config
+    ports:
+      - "${HOST_IP:-127.0.0.1}:10300:10300"   # Wyoming protocol
+
+  piper:
+    container_name: piper
+    image: rhasspy/wyoming-piper:${PIPER_TAG}
+    restart: unless-stopped
+    command:
+      - --voice
+      - en_GB-alan-medium
+    volumes:
+      - /opt/piper:/data
+    ports:
+      - "${HOST_IP:-127.0.0.1}:10200:10200"   # Wyoming protocol

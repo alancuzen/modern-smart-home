@@ -1,0 +1,122 @@
+# Repo:   homeassistant/dashboards/ground_floor_panel.yaml
+# Deploy: /config/dashboards/ground_floor_panel.yaml (Chapter 13)
+# Requires Home Assistant 2025.1+ and the HACS plugins Mushroom 5.x,
+# card-mod and layout-card.
+title: "Ground Floor Panel"
+views:
+  - title: "Main View"
+    path: "main"
+    type: custom:grid-layout
+    layout:
+      grid-template-columns: 25% 50% 25%
+      grid-template-rows: auto
+      grid-template-areas: |
+        "sidebar main_controls status_panel"
+    badges: []
+    cards:
+      # Left sidebar: security state
+      - type: vertical-stack
+        view_layout:
+          grid-area: sidebar
+        cards:
+          - type: heading
+            heading: "Home Security"
+            heading_style: title
+          - type: tile
+            entity: alarm_control_panel.home_alarm
+            name: "Alarm State"
+          # Tapping the icon locks or unlocks, but only after confirmation
+          - type: tile
+            entity: lock.front_door_lock
+            name: "Front Door"
+            tap_action:
+              action: more-info
+            icon_tap_action:
+              action: toggle
+              confirmation:
+                text: "Lock or unlock the front door?"
+
+      # Centre column: room controls and conditional alerts
+      - type: vertical-stack
+        view_layout:
+          grid-area: main_controls
+        cards:
+          - type: grid
+            columns: 2
+            square: false
+            cards:
+              - type: tile
+                entity: light.living_room_overhead
+                name: "Living Room"
+                features:
+                  - type: light-brightness
+              - type: tile
+                entity: light.kitchen_recessed_array
+                name: "Kitchen"
+                features:
+                  - type: light-brightness
+          # Only visible while Frigate sees a person on the driveway
+          - type: conditional
+            conditions:
+              - condition: state
+                entity: binary_sensor.front_driveway_person_occupancy
+                state: "on"
+            card:
+              type: custom:mushroom-template-card
+              primary: "Person detected on the driveway"
+              secondary: "Camera feed active"
+              icon: mdi:cctv
+              color: red
+              card_mod:
+                style: |
+                  ha-card {
+                    animation: blink 1.5s infinite;
+                  }
+                  @keyframes blink {
+                    50% { opacity: 0.5; }
+                  }
+
+      # Right column: heating and status
+      - type: vertical-stack
+        view_layout:
+          grid-area: status_panel
+        cards:
+          - type: tile
+            entity: climate.heating_zone_controller_downstairs
+            name: "Heating downstairs"
+            features:
+              - type: target-temperature
+              - type: climate-hvac-modes
+                hvac_modes:
+                  - "off"
+                  - heat
+          # State-driven styling (Section 13.4)
+          - type: custom:mushroom-template-card
+            entity: binary_sensor.hallway_smoke_detector
+            primary: "Smoke Detector"
+            secondary: "{{ states('binary_sensor.hallway_smoke_detector') }}"
+            icon: mdi:smoke-detector-variant
+            color: >-
+              {{ 'red' if is_state('binary_sensor.hallway_smoke_detector', 'on')
+                 else 'grey' }}
+            card_mod:
+              style: |
+                {% set alarm =
+                     is_state('binary_sensor.hallway_smoke_detector', 'on') %}
+                ha-card {
+                  border: {{ '2px solid red' if alarm
+                             else '1px solid var(--divider-color)' }};
+                  box-shadow: {{ '0 0 15px rgba(255,0,0,0.6)' if alarm
+                                 else 'none' }};
+                }
+          - type: conditional
+            conditions:
+              - condition: state
+                entity: input_boolean.bin_collection_day
+                state: "on"
+            card:
+              type: custom:mushroom-template-card
+              primary: "Waste Collection Today"
+              secondary: "Put out the bins"
+              icon: mdi:trash-can
+              color: amber

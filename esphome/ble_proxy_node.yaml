@@ -1,0 +1,39 @@
+# Repo:   esphome/ble_proxy_node.yaml
+# Deploy: /config/esphome/ble_proxy_node.yaml (Chapter 6)
+esphome:
+  name: ble-proxy-hallway
+  friendly_name: "Hallway BLE Proxy"
+
+esp32:
+  board: esp32dev
+  framework:
+    type: esp-idf
+
+api:
+  encryption:
+    key: !secret api_key_ble_proxy
+
+ota:
+  - platform: esphome
+    encryption:   # ESPHome 2026.9+: OTA encrypted with the api: key
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  manual_ip:
+    static_ip: 10.0.20.115
+    gateway: 10.0.20.1
+    subnet: 255.255.255.0
+    dns1: 10.0.20.1
+
+logger:
+  level: INFO   # DEBUG logging costs CPU time needed for BLE parsing
+
+esp32_ble_tracker:
+  scan_parameters:
+    interval: 320ms   # one shared radio: leave airtime for Wi-Fi
+    window: 30ms
+    active: false     # passive scanning protects sensor batteries
+
+bluetooth_proxy:
+  active: true   # lets Home Assistant open GATT connections via this node
