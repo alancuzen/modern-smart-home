@@ -8,7 +8,7 @@
 
 **Proxmox, Home Assistant, Frigate, TensorRT & Edge AI** — companion repository for the book by Alan Cuzen.
 
-Every configuration file and script in this repository is printed in full in the book (only this README, LICENSE and .gitignore are not), and every configuration file in the book is here. Appendix F of the book maps each file to its chapter.
+Every configuration file and script in this repository is printed in full in the book (only this README, LICENSE, .gitignore and the extra material in `docs/` are not), and every configuration file in the book is here. Appendix F of the book maps each file to its chapter.
 
 **How it was made:** these configurations come from the author's own six-year home build. For the book's first edition they were revised, and some were written, with an AI assistant (Anthropic's Claude); the book's copyright page explains how, and the Reference versions table below shows what has been tested.
 
