@@ -4,6 +4,8 @@
 > `git clone --branch edition-1 https://github.com/alancuzen/modern-smart-home.git`
 > The `main` branch may contain later changes.
 
+**📕 Get the book:** paperback and Kindle on Amazon: [amazon.co.uk](https://www.amazon.co.uk/dp/B0HLQF3FZN) · [amazon.com](https://www.amazon.com/dp/B0HLQF3FZN)
+
 **Proxmox, Home Assistant, Frigate, TensorRT & Edge AI** — companion repository for the book by Alan Cuzen.
 
 Every configuration file and script in this repository is printed in full in the book (only this README, LICENSE and .gitignore are not), and every configuration file in the book is here. Appendix F of the book maps each file to its chapter.
